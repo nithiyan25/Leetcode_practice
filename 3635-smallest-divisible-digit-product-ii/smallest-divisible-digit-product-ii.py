@@ -1,86 +1,164 @@
-import math
-
 class Solution:
+
+    def __init__(self):
+        self.primes = [2, 3, 5, 7]
+
     def smallestNumber(self, num: str, t: int) -> str:
-        temp = t
-        counts = [0, 0, 0, 0]
-        for i, p in enumerate([2, 3, 5, 7]):
-            while temp % p == 0:
-                counts[i] += 1
-                temp //= p
-                
-        if temp > 1:
+
+        primeCount = [0] * 8
+        numLength = len(num)
+        firstZeroIndexFromLeft = 0
+
+        for prime in self.primes:
+            while t % prime == 0:
+                t //= prime
+                primeCount[prime] += 1
+
+        if t != 1:
             return "-1"
-            
-        divs = []
-        for a in range(counts[0] + 1):
-            for b in range(counts[1] + 1):
-                for c in range(counts[2] + 1):
-                    for d in range(counts[3] + 1):
-                        divs.append((2**a) * (3**b) * (5**c) * (7**d))
-        divs.sort()
-        
-        trans = {v: [v] * 10 for v in divs}
-        for v in divs:
-            for d in range(1, 10):
-                trans[v][d] = v // math.gcd(v, d)
-                
-        dp = {v: float('inf') for v in divs}
-        dp[1] = 0
-        
-        for v in divs:
-            if v == 1:
-                continue
-            best = float('inf')
-            for d in range(2, 10):
-                nxt = trans[v][d]
-                if dp[nxt] + 1 < best:
-                    best = dp[nxt] + 1
-            dp[v] = best
-            
-        n = len(num)
-        first_zero = num.find('0')
-        
-        if first_zero == -1:
-            max_i_allowed = n - 1
-        else:
-            max_i_allowed = first_zero
-            
-        prefix_t = [t]
-        for i in range(max_i_allowed):
-            prefix_t.append(trans[prefix_t[-1]][int(num[i])])
-            
-        if first_zero == -1:
-            full_t = trans[prefix_t[-1]][int(num[-1])]
-            if full_t == 1:
+
+        minLength = self.getMinLength(primeCount)
+
+        if numLength < minLength:
+            return self.buildSuffix(primeCount, minLength, [''] * minLength)
+
+        result = [''] * (numLength + 1)
+
+        i = 0
+        while firstZeroIndexFromLeft < numLength:
+
+            i += 1
+            result[i] = num[firstZeroIndexFromLeft]
+
+            if result[i] == '0':
+                break
+
+            self.logNum(primeCount, result[i], -1)
+            firstZeroIndexFromLeft += 1
+
+        if self.getMinLength(primeCount) == 0:
+
+            if firstZeroIndexFromLeft == numLength:
                 return num
-                
-        for i in range(max_i_allowed, -1, -1):
-            p_t = prefix_t[i]
-            rem = n - 1 - i
-            
-            for d in range(int(num[i]) + 1, 10):
-                t_req = trans[p_t][d]
-                if dp[t_req] <= rem:
-                    ans = [num[:i], str(d)]
-                    curr_t = t_req
-                    for step in range(rem):
-                        for nxt_d in range(1, 10):
-                            next_t = trans[curr_t][nxt_d]
-                            if dp[next_t] <= rem - 1 - step:
-                                ans.append(str(nxt_d))
-                                curr_t = next_t
-                                break
-                    return "".join(ans)
-                    
-        length = max(n + 1, dp[t])
-        ans = []
-        curr_t = t
-        for step in range(length):
-            for nxt_d in range(1, 10):
-                next_t = trans[curr_t][nxt_d]
-                if dp[next_t] <= length - 1 - step:
-                    ans.append(str(nxt_d))
-                    curr_t = next_t
+
+            firstZeroIndexFromLeft += 1
+
+            for j in range(firstZeroIndexFromLeft, len(result)):
+                result[j] = '1'
+
+            return ''.join(result[1:])
+
+        last = numLength - 1
+
+        for end in range(min(firstZeroIndexFromLeft, last), -1, -1):
+
+            self.logNum(primeCount, result[end + 1], 1)
+
+            while True:
+
+                nxt = chr(ord(result[end + 1]) + 1)
+
+                if nxt > '9':
                     break
-        return "".join(ans)
+
+                result[end + 1] = nxt
+
+                self.logNum(primeCount, result[end + 1], -1)
+
+                if self.getMinLength(primeCount) <= last - end:
+                    return self.buildSuffix(primeCount, last - end, result)
+
+                self.logNum(primeCount, result[end + 1], 1)
+
+        return self.buildSuffix(primeCount, len(result), result)
+
+    def logNum(self, primeCount, ch, value):
+
+        if ch < '2':
+            return
+
+        if ch == '9':
+            primeCount[3] += value * 2
+
+        elif ch == '4':
+            primeCount[2] += value * 2
+
+        elif ch == '8':
+            primeCount[2] += value * 3
+
+        elif ch == '6':
+            primeCount[2] += value
+            primeCount[3] += value
+
+        else:
+            primeCount[ord(ch) - ord('0')] += value
+
+    def buildSuffix(self, primeCount, targetLength, result):
+
+        primeCount = primeCount[:]
+        index = len(result)
+
+        while primeCount[3] > 1:
+            primeCount[3] -= 2
+            index -= 1
+            result[index] = '9'
+
+        while primeCount[2] > 2:
+            primeCount[2] -= 3
+            index -= 1
+            result[index] = '8'
+
+        while primeCount[7] > 0:
+            primeCount[7] -= 1
+            index -= 1
+            result[index] = '7'
+
+        if primeCount[2] > 0 and primeCount[3] > 0:
+            index -= 1
+            result[index] = '6'
+            primeCount[2] -= 1
+            primeCount[3] -= 1
+
+        while primeCount[5] > 0:
+            primeCount[5] -= 1
+            index -= 1
+            result[index] = '5'
+
+        while primeCount[2] > 1:
+            primeCount[2] -= 2
+            index -= 1
+            result[index] = '4'
+
+        while primeCount[3] > 0:
+            primeCount[3] -= 1
+            index -= 1
+            result[index] = '3'
+
+        while primeCount[2] > 0:
+            primeCount[2] -= 1
+            index -= 1
+            result[index] = '2'
+
+        while index + targetLength != len(result):
+            index -= 1
+            result[index] = '1'
+
+        if targetLength == len(result):
+            return ''.join(result)
+
+        return ''.join(result[1:])
+
+    def getMinLength(self, primeCount):
+
+        count2 = max(0, primeCount[2])
+        count3 = max(0, primeCount[3])
+
+        count23 = (count3 & 1) + (count2 % 3)
+
+        return (
+            count3 // 2
+            + count2 // 3
+            + max(0, primeCount[7])
+            + max(0, primeCount[5])
+            + (2 if count23 == 3 else (1 if count23 > 0 else 0))
+        )
